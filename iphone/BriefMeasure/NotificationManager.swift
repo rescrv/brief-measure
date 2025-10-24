@@ -96,4 +96,23 @@ class NotificationManager: ObservableObject {
 
         return now >= todayNotificationTime && lastCompletionDate < todayNotificationTime
     }
+
+    func nextNotificationTime() -> Date? {
+        let calendar = Calendar.current
+        let now = Date()
+        let notificationComponents = calendar.dateComponents([.hour, .minute], from: notificationTime)
+
+        guard let todayNotificationTime = calendar.date(bySettingHour: notificationComponents.hour ?? 6,
+                                                         minute: notificationComponents.minute ?? 0,
+                                                         second: 0,
+                                                         of: now) else {
+            return nil
+        }
+
+        if now < todayNotificationTime {
+            return todayNotificationTime
+        } else {
+            return calendar.date(byAdding: .day, value: 1, to: todayNotificationTime)
+        }
+    }
 }

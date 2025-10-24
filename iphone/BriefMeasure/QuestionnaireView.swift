@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 struct QuestionnaireView: View {
     @State private var currentQuestionIndex = 0
@@ -9,6 +10,8 @@ struct QuestionnaireView: View {
     @StateObject private var notificationManager = NotificationManager.shared
     @AppStorage("lastCompletionDate") private var lastCompletionTimestamp: Double = 0
     @Environment(\.scenePhase) private var scenePhase
+
+    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     private var lastCompletionDate: Date? {
         lastCompletionTimestamp > 0 ? Date(timeIntervalSince1970: lastCompletionTimestamp) : nil
@@ -24,7 +27,7 @@ struct QuestionnaireView: View {
     var body: some View {
         ZStack {
             if isComplete {
-                ThankYouView()
+                ThankYouView(notificationManager: notificationManager)
             } else if let question = currentQuestion {
                 HorizontalButtonsView(
                     question: question,
@@ -54,7 +57,7 @@ struct QuestionnaireView: View {
             }
         }
         .sheet(isPresented: $showSettings) {
-            SettingsView()
+            SettingsView(onResetQuestionnaire: resetQuestionnaire)
         }
         .onAppear {
             checkAndResetIfNeeded()
@@ -63,6 +66,9 @@ struct QuestionnaireView: View {
             if newPhase == .active {
                 checkAndResetIfNeeded()
             }
+        }
+        .onReceive(timer) { _ in
+            checkAndResetIfNeeded()
         }
     }
 
@@ -83,7 +89,16 @@ struct QuestionnaireView: View {
             isComplete = false
             currentQuestionIndex = 0
             responses = [:]
+            lastCompletionTimestamp = 0
         }
+    }
+
+    private func resetQuestionnaire() {
+        print("Manually resetting questionnaire")
+        isComplete = false
+        currentQuestionIndex = 0
+        responses = [:]
+        lastCompletionTimestamp = 0
     }
 
     private func reviseQuestion(_ questionId: Int) {
@@ -230,6 +245,44 @@ struct CompletionView: View {
 }
 
 struct ThankYouView: View {
+    @ObservedObject var notificationManager: NotificationManager
+    @State private var currentTime = Date()
+    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    private var nextNotificationTime: Date? {
+        guard notificationManager.notificationsEnabled else { return nil }
+        return notificationManager.nextNotificationTime()
+    }
+
+    private var formattedNextNotificationTime: String? {
+        guard let nextTime = nextNotificationTime else { return nil }
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: nextTime)
+    }
+
+    private var timeUntilNext: String? {
+        guard let nextTime = nextNotificationTime else { return nil }
+        let interval = Int(nextTime.timeIntervalSince(currentTime))
+
+        if interval <= 0 {
+            return "Soon"
+        }
+
+        let hours = interval / 3600
+        let minutes = (interval % 3600) / 60
+        let seconds = interval % 60
+
+        if hours > 0 {
+            return String(format: "%dh %02dm %02ds", hours, minutes, seconds)
+        } else if minutes > 0 {
+            return String(format: "%dm %02ds", minutes, seconds)
+        } else {
+            return "\(seconds)s"
+        }
+    }
+
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: "checkmark.circle.fill")
@@ -244,8 +297,30 @@ struct ThankYouView: View {
                 .font(.body)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
+
+            VStack(spacing: 5) {
+                if let formattedNextNotificationTime {
+                    Text("Next notification: \(formattedNextNotificationTime)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    if let timeUntilNext {
+                        Text("(\(timeUntilNext))")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                } else {
+                    Text("Notifications are currently disabled.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(.top, 10)
         }
         .padding()
+        .onReceive(timer) { time in
+            currentTime = time
+        }
     }
 }
 

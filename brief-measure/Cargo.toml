@@ -1,0 +1,31 @@
+[package]
+name = "brief-measure"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "brief_measure"
+path = "src/lib.rs"
+
+[[bin]]
+name = "brief-measure-serve"
+path = "src/bin/brief-measure-serve.rs"
+
+[[bin]]
+name = "brief-measure-migrate-up"
+path = "src/bin/brief-measure-migrate-up.rs"
+
+[[bin]]
+name = "brief-measure-migrate-down"
+path = "src/bin/brief-measure-migrate-down.rs"
+
+[dependencies]
+axum = { version = "0.7", features = ["macros"] }
+tokio = { version = "1.35", features = ["macros", "rt-multi-thread"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+uuid = { version = "1.6", features = ["serde", "v7"] }
+sqlx = { version = "0.7", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "macros", "uuid", "chrono"] }
+chrono = { version = "0.4", features = ["clock"] }
+hex = "0.4"
+async-trait = "0.1"

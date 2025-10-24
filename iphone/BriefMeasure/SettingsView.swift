@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject var notificationManager = NotificationManager.shared
     @Environment(\.dismiss) var dismiss
+    var onResetQuestionnaire: (() -> Void)?
 
     var body: some View {
         NavigationView {
@@ -14,6 +15,21 @@ struct SettingsView: View {
                         DatePicker("Notification Time",
                                  selection: $notificationManager.notificationTime,
                                  displayedComponents: .hourAndMinute)
+                    }
+                }
+
+                Section(header: Text("Questionnaire")) {
+                    Button(action: {
+                        onResetQuestionnaire?()
+                        dismiss()
+                    }) {
+                        HStack {
+                            Text("Reset Daily Questionnaire")
+                                .foregroundColor(.blue)
+                            Spacer()
+                            Image(systemName: "arrow.counterclockwise")
+                                .foregroundColor(.blue)
+                        }
                     }
                 }
 
