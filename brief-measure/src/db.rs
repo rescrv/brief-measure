@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use sqlx::postgres::PgPoolOptions;
-use sqlx::{PgPool, Postgres};
+use sqlx::PgPool;
 
 use crate::config::env_or_default;
 use crate::error::AppError;
@@ -29,10 +29,10 @@ pub async fn migrate_up(pool: &PgPool) -> Result<(), AppError> {
 pub async fn migrate_down(pool: &PgPool) -> Result<(), AppError> {
     let mut conn = pool.acquire().await?;
 
-    let last_version = sqlx::query_scalar::<Postgres, i64>(
+    let last_version = sqlx::query_scalar::<_, i64>(
         "SELECT version FROM _sqlx_migrations ORDER BY version DESC LIMIT 1",
     )
-    .fetch_optional(&mut conn)
+    .fetch_optional(&mut *conn)
     .await?;
 
     let Some(version) = last_version else {
@@ -40,6 +40,6 @@ pub async fn migrate_down(pool: &PgPool) -> Result<(), AppError> {
     };
 
     let target = version - 1;
-    MIGRATOR.undo(&mut conn, target).await?;
+    MIGRATOR.undo(conn.as_mut(), target).await?;
     Ok(())
 }

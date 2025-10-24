@@ -16,6 +16,7 @@ pub struct VerifiedApiKey {
 impl<S> FromRequestParts<S> for VerifiedApiKey
 where
     Arc<AppState>: FromRef<S>,
+    S: Send + Sync,
 {
     type Rejection = AppError;
 

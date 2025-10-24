@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use axum::extract::FromRef;
 use sqlx::PgPool;
 
 use crate::config::{env_or_default, env_required};
@@ -13,12 +12,6 @@ pub struct AppState {
     pub observation_window_cap: i64,
     pub default_observation_limit: i64,
     pub max_observation_limit: i64,
-}
-
-impl FromRef<Arc<AppState>> for Arc<AppState> {
-    fn from_ref(state: &Arc<AppState>) -> Arc<AppState> {
-        Arc::clone(state)
-    }
 }
 
 impl AppState {
@@ -34,7 +27,7 @@ impl AppState {
         Ok(Arc::new(AppState {
             pool,
             observation_window: Duration::from_secs(observation_window_secs),
-            observation_window_cap: observation_window_cap,
+            observation_window_cap,
             default_observation_limit,
             max_observation_limit,
         }))

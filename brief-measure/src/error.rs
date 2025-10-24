@@ -18,6 +18,7 @@ pub enum AppError {
     InvalidConfig(String),
     Join(tokio::task::JoinError),
     Server(String),
+    Migration(sqlx::migrate::MigrateError),
 }
 
 #[derive(Serialize)]
@@ -39,6 +40,7 @@ impl AppError {
             AppError::InvalidConfig(key) => format!("invalid configuration: {key}"),
             AppError::Join(err) => format!("task join error: {err}"),
             AppError::Server(err) => format!("server error: {err}"),
+            AppError::Migration(err) => format!("migration error: {err}"),
         }
     }
 
@@ -52,7 +54,8 @@ impl AppError {
             AppError::MissingConfig(_) | AppError::InvalidConfig(_) => {
                 StatusCode::INTERNAL_SERVER_ERROR
             }
-            AppError::Database(_) | AppError::Io(_) | AppError::Join(_) | AppError::Server(_) => {
+            AppError::Database(_) | AppError::Io(_) | AppError::Join(_) | AppError::Server(_)
+            | AppError::Migration(_) => {
                 StatusCode::INTERNAL_SERVER_ERROR
             }
         }
@@ -92,5 +95,11 @@ impl From<std::io::Error> for AppError {
 impl From<tokio::task::JoinError> for AppError {
     fn from(err: tokio::task::JoinError) -> Self {
         AppError::Join(err)
+    }
+}
+
+impl From<sqlx::migrate::MigrateError> for AppError {
+    fn from(err: sqlx::migrate::MigrateError) -> Self {
+        AppError::Migration(err)
     }
 }

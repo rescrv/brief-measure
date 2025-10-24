@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::routing::{get, post};
+use axum::routing::{post};
 use axum::{Json, Router};
 use serde::Deserialize;
 
