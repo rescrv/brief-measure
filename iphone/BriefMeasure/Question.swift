@@ -11,62 +11,62 @@ struct QuestionBank {
     static let questions: [Question] = [
         Question(
             id: 1,
-            text: "How caffeinated are you right now?",
-            scaleLabels: ["Decaf", "Slightly Buzzed", "Very Buzzed", "Vibrating"],
+            text: "Voices/sounds others don't hear",
+            scaleLabels: ["Not Present", "Noticed", "Impactful", "Debilitating"],
             summary: "Caffeine"
         ),
         Question(
             id: 2,
-            text: "How strong is your urge to take a nap?",
-            scaleLabels: ["Wide Awake", "Could Sleep", "Should Sleep", "Already Asleep"],
+            text: "Beliefs others find strange",
+            scaleLabels: ["Not Present", "Noticed", "Impactful", "Debilitating"],
             summary: "Sleepiness"
         ),
         Question(
             id: 3,
-            text: "How much do you understand your cat's thoughts?",
-            scaleLabels: ["No Cat", "Mysterious", "Getting There", "Telepathic"],
+            text: "Feeling unreal/disconnected",
+            scaleLabels: ["Not Present", "Noticed", "Impactful", "Debilitating"],
             summary: "Cat"
         ),
         Question(
             id: 4,
-            text: "How confident are you that you locked the door?",
-            scaleLabels: ["100% Sure", "Pretty Sure", "Should Check", "Panicking"],
+            text: "Feeling sad/depressed",
+            scaleLabels: ["Not Present", "Noticed", "Impactful", "Debilitating"],
             summary: "Door"
         ),
         Question(
             id: 5,
-            text: "How many tabs do you have open right now?",
-            scaleLabels: ["Under 10", "10-30", "30-100", "Lost Count"],
+            text: "Energy level",
+            scaleLabels: ["Normal", "Tired", "Expended", "Exhausted"],
             summary: "Tabs"
         ),
         Question(
             id: 6,
-            text: "How badly do you need to stretch?",
-            scaleLabels: ["Limber", "A Little Stiff", "Very Stiff", "Fossilizing"],
+            text: "Difficulty concentrating",
+            scaleLabels: ["Not Present", "Noticed", "Impactful", "Debilitating"],
             summary: "Stretch"
         ),
         Question(
             id: 7,
-            text: "How hungry are you?",
-            scaleLabels: ["Just Ate", "Peckish", "Hungry", "Hangry"],
+            text: "Problems with daily tasks",
+            scaleLabels: ["Not Present", "Noticed", "Impactful", "Debilitating"],
             summary: "Hunger"
         ),
         Question(
             id: 8,
-            text: "How much do you regret your last text message?",
-            scaleLabels: ["No Regrets", "Minor Regret", "Major Regret", "Deleting App"],
+            text: "Social withdrawal",
+            scaleLabels: ["Not Present", "Noticed", "Impactful", "Debilitating"],
             summary: "Regret"
         ),
         Question(
             id: 9,
-            text: "How organized is your workspace?",
-            scaleLabels: ["Marie Kondo", "Lived In", "Chaotic", "Crime Scene"],
+            text: "Thoughts of self-harm",
+            scaleLabels: ["Not Present", "Noticed", "Impactful", "Debilitating"],
             summary: "Workspace"
         ),
         Question(
             id: 10,
-            text: "How likely are you to start a new hobby today?",
-            scaleLabels: ["Not Likely", "Maybe", "Probably", "Already Shopping"],
+            text: "Sleep quality",
+            scaleLabels: ["Good", "Fair", "Degraded", "Terrible"],
             summary: "Hobby"
         )
     ]
