@@ -61,10 +61,16 @@ struct QuestionnaireView: View {
         }
         .onAppear {
             checkAndResetIfNeeded()
+            Task {
+                await ObservationUploader.shared.retryUpload()
+            }
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 checkAndResetIfNeeded()
+                Task {
+                    await ObservationUploader.shared.retryUpload()
+                }
             }
         }
         .onReceive(timer) { _ in
@@ -79,6 +85,11 @@ struct QuestionnaireView: View {
                 print("\(question.summary): \(question.scaleLabels[answer - 1])")
             }
         }
+
+        Task {
+            await ObservationUploader.shared.recordObservation(responses: responses)
+        }
+
         lastCompletionTimestamp = Date().timeIntervalSince1970
         isComplete = true
     }
@@ -247,6 +258,7 @@ struct CompletionView: View {
 struct ThankYouView: View {
     @ObservedObject var notificationManager: NotificationManager
     @State private var currentTime = Date()
+    @ObservedObject private var observationStatus = ObservationStatus.shared
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     private var nextNotificationTime: Date? {
@@ -283,6 +295,25 @@ struct ThankYouView: View {
         }
     }
 
+    private var nextRetryDescription: String? {
+        guard let retryDate = observationStatus.nextRetryDate else { return nil }
+        let interval = Int(retryDate.timeIntervalSince(currentTime))
+        if interval <= 0 {
+            return "Retrying now"
+        }
+        let hours = interval / 3600
+        let minutes = (interval % 3600) / 60
+        let seconds = interval % 60
+
+        if hours > 0 {
+            return String(format: "Retrying in %dh %02dm %02ds", hours, minutes, seconds)
+        } else if minutes > 0 {
+            return String(format: "Retrying in %dm %02ds", minutes, seconds)
+        } else {
+            return "Retrying in \(seconds)s"
+        }
+    }
+
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: "checkmark.circle.fill")
@@ -297,6 +328,49 @@ struct ThankYouView: View {
                 .font(.body)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
+
+            if observationStatus.pendingCount > 0 {
+                VStack(spacing: 6) {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                        Text("Uploading your responses… (\(observationStatus.pendingCount) pending)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    if let retryDescription = nextRetryDescription {
+                        Text(retryDescription)
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+
+                    if let errorMessage = observationStatus.lastErrorMessage {
+                        Text(errorMessage)
+                            .font(.caption2)
+                            .foregroundColor(.red)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(UIColor.secondarySystemBackground))
+                )
+            } else if let limitMessage = observationStatus.lastLimitMessage {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.yellow)
+                    Text(limitMessage)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.leading)
+                }
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(UIColor.secondarySystemBackground))
+                )
+            }
 
             VStack(spacing: 5) {
                 if let formattedNextNotificationTime {

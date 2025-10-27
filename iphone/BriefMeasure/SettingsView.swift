@@ -4,13 +4,16 @@ struct SettingsView: View {
     @ObservedObject var notificationManager = NotificationManager.shared
     @Environment(\.dismiss) var dismiss
     var onResetQuestionnaire: (() -> Void)?
-    @AppStorage("apiKeyEndpoint") private var apiKeyEndpoint: String = "https://localhost:3000/api/v1/keys"
-    @State private var apiKeyEndpointText: String = ""
+
+    @AppStorage("apiBaseURL") private var apiBaseURL: String = "https://localhost:3000/api/v1/"
+    @State private var apiEndpointInput: String = ""
     @State private var isFetchingApiKey = false
-    @State private var apiKeyStatus: String?
-    @State private var isApiKeyStatusError = false
+    @State private var isPerformingForgetMe = false
+    @State private var apiStatusMessage: String?
+    @State private var apiStatusIsError = false
     @State private var storedApiKeySummary: String?
     @State private var didLoadInitialValues = false
+
     private let apiKeyService = ApiKeyService()
 
     var body: some View {
@@ -20,9 +23,11 @@ struct SettingsView: View {
                     Toggle("Enable Daily Reminder", isOn: $notificationManager.notificationsEnabled)
 
                     if notificationManager.notificationsEnabled {
-                        DatePicker("Notification Time",
-                                 selection: $notificationManager.notificationTime,
-                                 displayedComponents: .hourAndMinute)
+                        DatePicker(
+                            "Notification Time",
+                            selection: $notificationManager.notificationTime,
+                            displayedComponents: .hourAndMinute
+                        )
                     }
                 }
 
@@ -42,16 +47,10 @@ struct SettingsView: View {
                 }
 
                 Section(header: Text("API Access")) {
-                    TextField("API Key Endpoint", text: Binding(
-                        get: { apiKeyEndpointText },
-                        set: { newValue in
-                            apiKeyEndpointText = newValue
-                            apiKeyEndpoint = newValue
-                        }
-                    ))
-                    .keyboardType(.URL)
-                    .textInputAutocapitalization(.never)
-                    .disableAutocorrection(true)
+                    TextField("API Base URL or /keys endpoint", text: $apiEndpointInput)
+                        .keyboardType(.URL)
+                        .textInputAutocapitalization(.never)
+                        .disableAutocorrection(true)
 
                     Button(action: fetchApiKey) {
                         if isFetchingApiKey {
@@ -61,12 +60,22 @@ struct SettingsView: View {
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .center)
-                    .disabled(isFetchingApiKey)
+                    .disabled(isFetchingApiKey || isPerformingForgetMe)
 
-                    if let status = apiKeyStatus {
+                    Button(role: .destructive, action: forgetMe) {
+                        if isPerformingForgetMe {
+                            ProgressView()
+                        } else {
+                            Text("Forget Me")
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .disabled(isPerformingForgetMe || isFetchingApiKey)
+
+                    if let status = apiStatusMessage {
                         Text(status)
                             .font(.caption)
-                            .foregroundColor(isApiKeyStatusError ? .red : .secondary)
+                            .foregroundColor(apiStatusIsError ? .red : .secondary)
                     }
 
                     if let summary = storedApiKeySummary {
@@ -90,7 +99,8 @@ struct SettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 if !didLoadInitialValues {
-                    apiKeyEndpointText = apiKeyEndpoint
+                    migrateLegacyEndpointIfNeeded()
+                    apiEndpointInput = apiBaseURL
                     refreshStoredKeySummary()
                     didLoadInitialValues = true
                 }
@@ -98,6 +108,7 @@ struct SettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
+                        persistBaseInput()
                         dismiss()
                     }
                 }
@@ -106,26 +117,44 @@ struct SettingsView: View {
     }
 
     private func fetchApiKey() {
-        let trimmedEndpoint = apiKeyEndpointText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let endpointURL = URL(string: trimmedEndpoint) else {
-            apiKeyStatus = ApiKeyServiceError.invalidEndpoint.localizedDescription
-            isApiKeyStatusError = true
+        guard !isFetchingApiKey, !isPerformingForgetMe else { return }
+
+        let input = apiEndpointInput.isEmpty ? apiBaseURL : apiEndpointInput
+        let endpoints: ApiEndpoints
+        do {
+            endpoints = try ApiKeyService.deriveEndpoints(from: input)
+        } catch {
+            apiStatusMessage = ApiKeyServiceError.invalidEndpoint.localizedDescription
+            apiStatusIsError = true
             return
         }
 
-        apiKeyEndpoint = trimmedEndpoint
+        apiEndpointInput = endpoints.base.absoluteString
+        apiBaseURL = endpoints.base.absoluteString
+
+        if apiKeyService.loadApiKey() != nil {
+            apiStatusMessage = "Please use Forget Me before requesting a new API key."
+            apiStatusIsError = true
+            return
+        }
+
+        Task {
+            await ObservationUploader.shared.configurationDidChange()
+        }
+
         isFetchingApiKey = true
-        apiKeyStatus = "Requesting a new API key…"
-        isApiKeyStatusError = false
+        apiStatusMessage = "Requesting a new API key…"
+        apiStatusIsError = false
 
         Task {
             do {
-                let apiKey = try await apiKeyService.fetchApiKey(from: endpointURL)
+                let apiKey = try await apiKeyService.fetchApiKey(at: endpoints.keys)
                 try apiKeyService.storeApiKey(apiKey)
+                await ObservationUploader.shared.configurationDidChange()
                 await MainActor.run {
                     storedApiKeySummary = summarizedKey(apiKey)
-                    apiKeyStatus = "API key saved to the Keychain."
-                    isApiKeyStatusError = false
+                    apiStatusMessage = "API key saved to the Keychain."
+                    apiStatusIsError = false
                     isFetchingApiKey = false
                 }
             } catch {
@@ -136,9 +165,62 @@ struct SettingsView: View {
                     description = error.localizedDescription
                 }
                 await MainActor.run {
-                    apiKeyStatus = description
-                    isApiKeyStatusError = true
+                    apiStatusMessage = description
+                    apiStatusIsError = true
                     isFetchingApiKey = false
+                }
+            }
+        }
+    }
+
+    private func forgetMe() {
+        guard !isPerformingForgetMe, !isFetchingApiKey else { return }
+
+        let input = apiEndpointInput.isEmpty ? apiBaseURL : apiEndpointInput
+        let endpoints: ApiEndpoints
+        do {
+            endpoints = try ApiKeyService.deriveEndpoints(from: input)
+        } catch {
+            apiStatusMessage = ApiKeyServiceError.invalidEndpoint.localizedDescription
+            apiStatusIsError = true
+            return
+        }
+
+        guard let apiKey = apiKeyService.loadApiKey() else {
+            apiStatusMessage = ApiKeyServiceError.missingApiKey.localizedDescription
+            apiStatusIsError = true
+            return
+        }
+
+        apiEndpointInput = endpoints.base.absoluteString
+        apiBaseURL = endpoints.base.absoluteString
+
+        isPerformingForgetMe = true
+        apiStatusMessage = "Sending forget-me request…"
+        apiStatusIsError = false
+
+        Task {
+            do {
+                try await apiKeyService.forgetMe(at: endpoints.forgetMe, apiKey: apiKey)
+                try apiKeyService.deleteApiKey()
+                await ObservationUploader.shared.clearQueue()
+                await MainActor.run {
+                    storedApiKeySummary = nil
+                    apiStatusMessage = "Forget-me completed. Stored data removed."
+                    apiStatusIsError = false
+                    isPerformingForgetMe = false
+                }
+            } catch {
+                let description: String
+                if let serviceError = error as? ApiKeyServiceError {
+                    description = serviceError.localizedDescription
+                } else {
+                    description = error.localizedDescription
+                }
+                await MainActor.run {
+                    apiStatusMessage = description
+                    apiStatusIsError = true
+                    isPerformingForgetMe = false
                 }
             }
         }
@@ -156,6 +238,38 @@ struct SettingsView: View {
         let prefix = key.prefix(4)
         let suffix = key.suffix(4)
         return "\(prefix)…\(suffix)"
+    }
+
+    private func persistBaseInput() {
+        let trimmed = apiEndpointInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        if let endpoints = try? ApiKeyService.deriveEndpoints(from: trimmed) {
+            apiEndpointInput = endpoints.base.absoluteString
+            if apiBaseURL != endpoints.base.absoluteString {
+                apiBaseURL = endpoints.base.absoluteString
+                Task {
+                    await ObservationUploader.shared.configurationDidChange()
+                }
+            }
+        }
+    }
+
+    private func migrateLegacyEndpointIfNeeded() {
+        let defaults = UserDefaults.standard
+        guard let legacy = defaults.string(forKey: "apiKeyEndpoint") else { return }
+
+        if let endpoints = try? ApiKeyService.deriveEndpoints(from: legacy) {
+            let newBase = endpoints.base.absoluteString
+            if apiBaseURL != newBase {
+                apiBaseURL = newBase
+                Task {
+                    await ObservationUploader.shared.configurationDidChange()
+                }
+            }
+        }
+
+        defaults.removeObject(forKey: "apiKeyEndpoint")
     }
 }
 

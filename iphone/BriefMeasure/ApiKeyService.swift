@@ -7,6 +7,7 @@ enum ApiKeyServiceError: LocalizedError {
     case decodingFailed
     case invalidApiKey
     case keychainSaveFailed(OSStatus)
+    case missingApiKey
 
     var errorDescription: String? {
         switch self {
@@ -20,26 +21,82 @@ enum ApiKeyServiceError: LocalizedError {
             return "Received an invalid API key."
         case .keychainSaveFailed(let status):
             return "Failed to store the API key (status \(status))."
+        case .missingApiKey:
+            return "No API key is stored."
         }
     }
+}
+
+struct ApiEndpoints {
+    let base: URL
+    let keys: URL
+    let observations: URL
+    let forgetMe: URL
 }
 
 private struct ApiKeyResponseDTO: Decodable {
     let api_key: String
 }
 
+private struct EmptyRequest: Encodable {}
+
 struct ApiKeyService {
     private static let hexCharacterSet = CharacterSet(charactersIn: "0123456789abcdefABCDEF")
     private let urlSession: URLSession
 
-    init(urlSession: URLSession = .shared) {
+    init(urlSession: URLSession = URLSession(configuration: .default)) {
         self.urlSession = urlSession
     }
 
-    func fetchApiKey(from endpoint: URL) async throws -> String {
+    static func deriveEndpoints(from input: String) throws -> ApiEndpoints {
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw ApiKeyServiceError.invalidEndpoint
+        }
+
+        guard var url = URL(string: trimmed) else {
+            throw ApiKeyServiceError.invalidEndpoint
+        }
+
+        if url.lastPathComponent.isEmpty, url.path != "/" {
+            url = url.deletingLastPathComponent()
+        }
+
+        let lastComponent = url.lastPathComponent.lowercased()
+        if ["keys", "observations", "forget-me-now"].contains(lastComponent) {
+            url = url.deletingLastPathComponent()
+        }
+
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        components?.query = nil
+        components?.fragment = nil
+
+        guard let sanitized = components?.url else {
+            throw ApiKeyServiceError.invalidEndpoint
+        }
+
+        var baseString = sanitized.absoluteString
+        if !baseString.hasSuffix("/") {
+            baseString.append("/")
+        }
+
+        guard let baseURL = URL(string: baseString) else {
+            throw ApiKeyServiceError.invalidEndpoint
+        }
+
+        let keysURL = baseURL.appendingPathComponent("keys")
+        let observationsURL = baseURL.appendingPathComponent("observations")
+        let forgetMeURL = baseURL.appendingPathComponent("forget-me-now")
+
+        return ApiEndpoints(base: baseURL, keys: keysURL, observations: observationsURL, forgetMe: forgetMeURL)
+    }
+
+    func fetchApiKey(at endpoint: URL) async throws -> String {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONEncoder().encode(EmptyRequest())
 
         let (data, response) = try await urlSession.data(for: request)
 
@@ -61,6 +118,22 @@ struct ApiKeyService {
         }
 
         return trimmedKey.lowercased()
+    }
+
+    func forgetMe(at endpoint: URL, apiKey: String) async throws {
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+
+        let (_, response) = try await urlSession.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ApiKeyServiceError.invalidResponseStatus(-1)
+        }
+
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw ApiKeyServiceError.invalidResponseStatus(httpResponse.statusCode)
+        }
     }
 
     func storeApiKey(_ apiKey: String, label: String = "API_KEY") throws {
@@ -90,6 +163,19 @@ struct ApiKeyService {
                 throw ApiKeyServiceError.keychainSaveFailed(addStatus)
             }
         } else {
+            throw ApiKeyServiceError.keychainSaveFailed(status)
+        }
+    }
+
+    func deleteApiKey(label: String = "API_KEY") throws {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: label,
+            kSecAttrService as String: "BriefMeasure",
+        ]
+
+        let status = SecItemDelete(query as CFDictionary)
+        if status != errSecSuccess && status != errSecItemNotFound {
             throw ApiKeyServiceError.keychainSaveFailed(status)
         }
     }
