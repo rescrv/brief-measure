@@ -1,0 +1,20 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build the Docker image
+      run: docker build brief-measure --target brief-measure-migrate-up --tag ghcr.io/rescrv/brief-measure-migrate-up:$(date +%s)
+    - name: Build the Docker image
+      run: docker build brief-measure --target brief-measure-serve --tag ghcr.io/rescrv/brief-measure-serve:$(date +%s)
