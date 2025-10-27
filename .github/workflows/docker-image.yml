@@ -14,7 +14,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Build the Docker image
+    - name: Build the Docker image (migrate up)
       run: docker build brief-measure --target brief-measure-migrate-up --tag ghcr.io/rescrv/brief-measure-migrate-up:$(date +%s)
-    - name: Build the Docker image
+    - name: Build the Docker image (serve)
       run: docker build brief-measure --target brief-measure-serve --tag ghcr.io/rescrv/brief-measure-serve:$(date +%s)
+    - name: Push the docker image (migrate up)
+      run: docker push ghcr.io/rescrv/brief-measure-migrate-up
+    - name: Push the docker image (serve)
+      run: docker push ghcr.io/rescrv/brief-measure-serve
