@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background gradient from calm blue to soft purple -->
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4A90E2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7B68EE;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="barGradient" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:0.7" />
+      <stop offset="100%" style="stop-color:#FFFFFF;stop-opacity:0.95" />
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded rectangle background -->
+  <rect width="1024" height="1024" rx="180" fill="url(#bg)"/>
+
+  <!-- Minimalist chart/graph representing mood tracking -->
+  <!-- Base line -->
+  <line x1="200" y1="650" x2="824" y2="650" stroke="white" stroke-width="6" opacity="0.4"/>
+
+  <!-- Vertical bars representing data points at different levels -->
+  <rect x="230" y="420" width="60" height="230" rx="30" fill="url(#barGradient)" opacity="0.9"/>
+  <rect x="340" y="350" width="60" height="300" rx="30" fill="url(#barGradient)" opacity="0.9"/>
+  <rect x="450" y="480" width="60" height="170" rx="30" fill="url(#barGradient)" opacity="0.9"/>
+  <rect x="560" y="380" width="60" height="270" rx="30" fill="url(#barGradient)" opacity="0.9"/>
+  <rect x="670" y="450" width="60" height="200" rx="30" fill="url(#barGradient)" opacity="0.9"/>
+
+  <!-- Stylized "BM" text for Brief Measure -->
+  <text x="512" y="280" font-family="system-ui, -apple-system, sans-serif" font-size="180" font-weight="700" fill="white" text-anchor="middle" opacity="0.95">BM</text>
+</svg>
