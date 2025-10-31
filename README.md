@@ -97,3 +97,12 @@ spec:
 I recommend auditing the code at a version and hard-coding the image tags as I've done here.  If
 you're running microk8s (available on Ubuntu), this will listen on the public IP of your host on
 port 32767.
+
+## Privacy
+
+This is designed to be an app I trust with my own data.  For security reasons, I expect you to serve
+the API server over HTTPS.  Assuming that, you can assume the following:
+- No one can see your data except if they have access to the api server or there is a
+  world-impacting bug.
+- You can click "Forget Me" at any time and the API server will delete your API key and all data
+  associated with it.
