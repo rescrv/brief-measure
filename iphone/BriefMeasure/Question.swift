@@ -36,7 +36,7 @@ struct QuestionBank {
         Question(
             id: 5,
             text: "Energy level",
-            scaleLabels: ["Normal", "Tired", "Expended", "Exhausted"],
+            scaleLabels: ["Elevated", "Normal", "Tired", "Exhausted"],
             summary: "Tabs"
         ),
         Question(
